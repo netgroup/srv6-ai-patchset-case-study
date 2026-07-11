@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Cost Asymmetry of AI-Generated Code — a Case Study in the SRv6 Subsystem</title>
+
+<link rel="stylesheet" href="assets/reveal/reveal.css">
+<link rel="stylesheet" href="assets/reveal/theme/white.css" id="theme">
+
+<style>
+  :root {
+    --c-primary:   #078052;   /* Tor Vergata green */
+    --c-primary-d: #045a3a;
+    --c-primary-l: #d1fae5;
+    --c-accent:    #d97706;    /* warm orange */
+    --c-good:      #047857;
+    --c-bad:       #b91c1c;
+    --c-muted:     #6b7280;
+    --c-soft:      #e5e7eb;
+    --c-bg-soft:   #f3f4f6;
+  }
+  .reveal { font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 40px; }
+  .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+    font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--c-primary); text-transform: none; letter-spacing: -0.01em; }
+  .reveal h2 { font-size: 1.5em; margin: 0 0 0.4em; }
+  .reveal h3 { font-size: 1.1em; }
+  .reveal section { text-align: left; }
+  .reveal section.center { text-align: center; }
+  .reveal ul, .reveal ol { font-size: 0.78em; line-height: 1.4; margin: 0.3em 0; padding-left: 1.2em; }
+  .reveal li { margin: 0.15em 0; }
+  .reveal p { font-size: 0.85em; line-height: 1.4; margin: 0.3em 0; }
+  .reveal code { font-family: "Consolas","Menlo",monospace; font-size: 0.85em;
+                 background: var(--c-bg-soft); padding: 1px 4px; border-radius: 3px; color: #111; }
+  .accent { color: var(--c-accent); font-weight: 600; }
+  .good { color: var(--c-good); font-weight: 600; }
+  .bad  { color: var(--c-bad);  font-weight: 600; }
+  .primary { color: var(--c-primary); font-weight: 600; }
+  .muted { color: var(--c-muted); }
+  .footer { position: fixed; bottom: 8px; left: 16px; font-size: 11px; color: var(--c-muted); z-index: 50; }
+  .footer .sep { margin: 0 6px; color: var(--c-soft); }
+  #pdfBtn { position: fixed; bottom: 10px; right: 14px; z-index: 60; cursor: pointer;
+            font: 600 13px/1 "Segoe UI", Arial, sans-serif; color: #fff; background: var(--c-primary);
+            border: none; border-radius: 5px; padding: 8px 12px; opacity: .82; }
+  #pdfBtn:hover { opacity: 1; }
+  @media print { .footer, #pdfBtn { display: none !important; } }
+  .part-banner { display: inline-block; background: var(--c-primary); color: #fff;
+    padding: 5px 14px; border-radius: 3px; font-size: 0.5em; letter-spacing: 0.15em;
+    text-transform: uppercase; margin-bottom: 0.5em; }
+  /* === TITLE SLIDE SCOPED FONT BASE === */
+  .reveal .title-slide { font-size: 32px; }
+  .title-slide .part-banner { font-size: 0.7em; padding: 7px 18px; margin: 0.6em 0; }
+  .title-slide h1 { font-size: 2.4em; line-height: 1.15; margin: 0.4em 0 0.5em; }
+  .title-slide .authors { font-size: 0.95em; color: #222; line-height: 1.55; margin: 0.4em 0; }
+  .title-slide .venue { font-size: 0.78em; color: var(--c-muted); margin: 1em 0 0.4em; line-height: 1.5; }
+  .title-slide .logo-strip { display: flex; justify-content: center; align-items: center; gap: 48px; margin-bottom: 0.4em; }
+  .title-slide .logo-strip img { height: 120px; width: auto; }
+  .title-slide .disclaimer { font-size: 0.72em; color: var(--c-muted); font-style: italic; margin-top: 1.2em; }
+  table.cmp { font-size: 0.7em; border-collapse: collapse; margin: 0.4em auto; width: 100%; }
+  table.cmp th, table.cmp td { border: 1px solid var(--c-soft); padding: 6px 9px; vertical-align: top; }
+  table.cmp th { background: var(--c-primary); color: #fff; text-align: left; font-weight: 600; }
+  table.cmp td.row-label { background: var(--c-bg-soft); font-weight: 600; }
+  table.cmp tr.highlight td { background: #fef3c7; }
+  .two-col { display: flex; gap: 18px; align-items: flex-start; }
+  .two-col > div { flex: 1; }
+  .two-col svg.figure { width: 100%; height: auto; max-height: 620px; }
+  .reveal section.fill { height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  .reveal section.fill > h2 { margin-bottom: 0.6em; }
+  .msg-box { border-left: 8px solid var(--c-primary); background: #fafafa; padding: 22px 28px; border-radius: 4px;
+    margin: 12px 0; font-size: 0.95em; line-height: 1.4; display: flex; gap: 22px; align-items: center; }
+  .msg-box .msg-num { font-size: 1.6em; font-weight: 800; color: var(--c-primary); line-height: 1; min-width: 1.3em; text-align: center; }
+  .msg-box .msg-body strong { color: var(--c-primary); font-size: 1.15em; display: block; margin-bottom: 4px; }
+  .msg-box--accent { border-left-color: var(--c-accent); }
+  .msg-box--accent .msg-num { color: var(--c-accent); }
+  .msg-box--accent .msg-body strong { color: var(--c-accent); }
+  .takeaway { background: #fef3c7; border-left: 4px solid var(--c-accent); padding: 9px 13px; font-size: 0.78em;
+    margin-top: 0.5em; border-radius: 3px; }
+  .takeaway strong { color: var(--c-accent); }
+  .box { border: 1px solid var(--c-soft); border-radius: 4px; padding: 18px 22px; font-size: 0.85em; background: #fafafa; }
+  svg.figure { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .reveal section .one-line li { white-space: nowrap; }
+  svg text { font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="footer">
+  <span>Mayer, Salsano</span><span class="sep">|</span>
+  <span>The Cost Asymmetry of AI-Generated Code</span><span class="sep">|</span>
+  <span>New Age Tooling BoF — Netdev 0x1A, Rome 2026</span>
+</div>
+
+<button id="pdfBtn" title="Open the print-ready layout, then choose Save as PDF (enable Background graphics)" onclick="location.search='print-pdf&autoprint=1'">Save as PDF</button>
+
+<div class="reveal"><div class="slides">
+
+<!-- ===== SLIDE 1: TITLE ===== -->
+<section class="title-slide center">
+  <div class="logo-strip">
+    <img src="assets/tor-vergata-logo.png" alt="University of Rome Tor Vergata">
+    <img src="assets/cnit-logo.png" alt="CNIT">
+  </div>
+  <div><span class="part-banner">New Age Tooling BoF @ Netdev 0x1A</span></div>
+  <h1>The Cost Asymmetry of AI-Generated Code<br><span class="accent">a Case Study in the SRv6 Subsystem</span></h1>
+  <div class="authors">
+    <strong>Andrea Mayer</strong><sup>1</sup>, <strong>Stefano Salsano</strong><sup>1,2</sup><br>
+    <span class="muted"><sup>1</sup>University of Rome Tor Vergata, Italy &nbsp;&middot;&nbsp; <sup>2</sup>CNIT, Italy</span>
+  </div>
+  <div class="venue">
+    <strong style="color:#222;">Netdev 0x1A &mdash; The Technical Conference on Linux Networking</strong><br>
+    New Age Tooling BoF &mdash; <em>13&ndash;16 July 2026, Rome, Italy</em>
+  </div>
+  <div class="disclaimer">We are not here to blame anyone &mdash; we are here to learn, and to improve the kernel development process.</div>
+</section>
+
+<!-- ===== SLIDE 2: THE CASE ===== -->
+<section class="fill">
+  <h2>The case: one patchset, everything green</h2>
+  <div class="two-col">
+    <div style="flex: 1.15;">
+      <p><strong>[PATCH v2 0/7] seg6: add SRv6 Mobile User Plane (RFC 9433)</strong></p>
+      <ul class="one-line">
+        <li><strong>6 new behaviors</strong> + documentation, in one series</li>
+        <li><strong>5,155 insertions</strong>, 12 files &mdash; seg6_local.c grows 2.7k &rarr; 5k lines</li>
+        <li><strong>v1 &rarr; v2 in one day</strong>, CI findings all addressed</li>
+        <li><strong>2,402 lines of selftests</strong> (47% of the series) &mdash; all green</li>
+        <li>Textbook commit messages, precise RFC citations</li>
+      </ul>
+      <div class="takeaway" style="margin-top: 1.6em;">
+        <strong>Takeaway.</strong> Every cheap quality signal looked good. None of them measured correctness.
+      </div>
+    </div>
+    <div style="flex: 0.85;">
+      <svg class="figure" viewBox="0 0 560 560" xmlns="http://www.w3.org/2000/svg">
+        <g font-size="24">
+          <rect x="20" y="10"  width="520" height="58" rx="6" fill="#d1fae5" stroke="#078052" stroke-width="2"/>
+          <text x="40" y="47" font-weight="bold" fill="#045a3a">0/7  cover letter</text>
+          <rect x="20" y="80"  width="520" height="58" rx="6" fill="#f3f4f6" stroke="#6b7280"/>
+          <text x="40" y="117">1/7  End.MAP <tspan fill="#6b7280">(+191)</tspan></text>
+          <rect x="20" y="150" width="520" height="58" rx="6" fill="#f3f4f6" stroke="#6b7280"/>
+          <text x="40" y="187">2/7  End.M.GTP4.E <tspan fill="#6b7280">(+1,232)</tspan></text>
+          <rect x="20" y="220" width="520" height="58" rx="6" fill="#f3f4f6" stroke="#6b7280"/>
+          <text x="40" y="257">3/7  End.M.GTP6.E <tspan fill="#6b7280">(+717)</tspan></text>
+          <rect x="20" y="290" width="520" height="58" rx="6" fill="#f3f4f6" stroke="#6b7280"/>
+          <text x="40" y="327">4/7  End.M.GTP6.D <tspan fill="#6b7280">(+1,013)</tspan></text>
+          <rect x="20" y="360" width="520" height="58" rx="6" fill="#f3f4f6" stroke="#6b7280"/>
+          <text x="40" y="397">5/7  End.M.GTP6.D.Di <tspan fill="#6b7280">(+652)</tspan></text>
+          <rect x="20" y="430" width="520" height="58" rx="6" fill="#f3f4f6" stroke="#6b7280"/>
+          <text x="40" y="467">6/7  H.M.GTP4.D</text>
+          <rect x="20" y="500" width="520" height="58" rx="6" fill="#f3f4f6" stroke="#6b7280"/>
+          <text x="40" y="537">7/7  Documentation</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SLIDE 3: THE ASYMMETRY, MEASURED ===== -->
+<section class="fill">
+  <h2>The asymmetry, measured in the wild</h2>
+  <div class="msg-box">
+    <div class="msg-num">1</div>
+    <div class="msg-body"><strong>Generation: ~1 day per iteration.</strong> 5,155 lines, six behaviors; v1 on May 4, v2 on May 5.</div>
+  </div>
+  <div class="msg-box">
+    <div class="msg-num">2</div>
+    <div class="msg-body"><strong>Expert review: one month.</strong> 8 emails, ~40 findings (May 8 &ndash; June 8) &mdash; and it covered only 5 of 7 patches.</div>
+  </div>
+  <div class="msg-box msg-box--accent">
+    <div class="msg-num">3</div>
+    <div class="msg-body"><strong>Outcome: start over.</strong> Nothing merged; full rework agreed &mdash; and the maintainer walked away with <em>more</em> work (two prep workstreams).</div>
+  </div>
+  <div class="takeaway" style="margin-top: 1.2em;">
+    <strong>Takeaway.</strong> A 1 : 5&ndash;10 generation-to-review cost ratio is not a thought experiment &mdash; this thread measured it.
+  </div>
+</section>
+
+<!-- ===== SLIDE 4: ANATOMY OF THE FINDINGS ===== -->
+<section class="fill">
+  <h2>Anatomy of ~40 review findings</h2>
+  <table class="cmp">
+    <thead><tr><th style="width:24%;">Class</th><th style="width:48%;">What we found</th><th>Why it hurts</th></tr></thead>
+    <tbody>
+      <tr class="highlight"><td class="row-label">Spec conformance</td><td>Patch 4 implements <strong>neither</strong> RFC 9433 &sect;6.3 <strong>nor</strong> &sect;6.4; RFC 6040 mis-cited</td><td><span class="bad">Fatal, invisible to CI</span></td></tr>
+      <tr><td class="row-label">Security / validation</td><td>Malformed SRH accepted as absent &rarr; HMAC bypass; HMAC invalid by construction</td><td><span class="bad">Silent</span></td></tr>
+      <tr><td class="row-label">UAPI design</td><td>Required-but-unused attributes; NH6 / SRH / OIF semantics overloaded</td><td><span class="bad">Irreversible once merged</span></td></tr>
+      <tr><td class="row-label">Data path &amp; structure</td><td>GSO broken, stale checksums, unchecked fragments; &times;5 duplicated logic</td><td>Bugs hide in the copies</td></tr>
+    </tbody>
+  </table>
+  <div class="takeaway" style="margin-top: 1.6em;">
+    <strong>Takeaway.</strong> The most damaging classes &mdash; spec, security, UAPI &mdash; are exactly the ones no automated pipeline caught.
+  </div>
+</section>
+
+<!-- ===== SLIDE 5: THE CHECKSUM COINCIDENCE ===== -->
+<section class="fill">
+  <h2>The selftest that passed by coincidence</h2>
+  <div class="msg-box">
+    <div class="msg-num">1</div>
+    <div class="msg-body"><strong>The bug.</strong> End.MAP rewrites the IPv6 DA &mdash; the ICMPv6 checksum covers the DA, so it must be updated. It isn't.</div>
+  </div>
+  <div class="msg-box">
+    <div class="msg-num">2</div>
+    <div class="msg-body"><strong>The mystery.</strong> The AI reviewer flagged it &mdash; yet the generated selftest stayed green.</div>
+  </div>
+  <div class="msg-box msg-box--accent">
+    <div class="msg-num">3</div>
+    <div class="msg-body"><strong>The resolution.</strong> The two test addresses have equal 16-bit word sums: <code>2001:db8:f::1</code> vs <code>2001:db8:2::e</code> &mdash; <code>0x000f + 0x0001 = 0x0002 + 0x000e</code>. Change one address &rarr; <code>Icmp6InCsumErrors</code>.</div>
+  </div>
+  <p style="margin-top: 0.8em; font-size: 0.72em;" class="muted"><em>"The AI bot was right, but when I ran the selftest it passed."</em> &mdash; the human reviewer, digging in</p>
+  <div class="takeaway">
+    <strong>Takeaway.</strong> Generated tests share the generator's blind spots &mdash; green CI &ne; correct.
+  </div>
+</section>
+
+<!-- ===== SLIDE 6: PLAUSIBLE-BUT-WRONG ===== -->
+<section class="fill">
+  <h2>"Plausible-but-wrong": the signature failure mode</h2>
+  <p><strong>The code looks idiomatic. The prose is precise. The substance is wrong:</strong></p>
+  <ul class="one-line">
+    <li>Comments cite RFC 9433 <strong>step numbers</strong> &mdash; the code implements <span class="bad">neither &sect;6.3 nor &sect;6.4</span></li>
+    <li>Comments describe <strong>code that is not there</strong> (hop-limit decrement, LOCAL_OUT claim)</li>
+    <li>RFC 6040 cited <strong>for something it does not cover</strong></li>
+    <li>The commit message's own example <strong>never uses a required attribute</strong></li>
+    <li>Commit message lists a drop reason <strong>the diff never adds</strong></li>
+  </ul>
+  <div class="box" style="margin-top: 1.2em; border-left: 6px solid var(--c-bad);">
+    <strong class="bad">Punchline.</strong> The AI reviewer scored this very patch cleanest of the series:
+    <strong>0 critical &middot; 0 high &middot; 0 medium &middot; 1 low.</strong>
+  </div>
+  <div class="takeaway" style="margin-top: 1.2em;">
+    <strong>Takeaway.</strong> Surface signals of quality are decoupled from correctness &mdash; checking code against the <em>intent</em> of a spec is still human work.
+  </div>
+</section>
+
+<!-- ===== SLIDE 7: HUMAN VS AI REVIEW ===== -->
+<section class="fill">
+  <h2>Human vs AI review, on the same patches</h2>
+  <p style="font-size:0.7em;" class="muted">Same perimeter (patches 1&ndash;5) &mdash; AI reviewer: Sashiko (Patchwork), every finding re-verified against kernel source.</p>
+  <table class="cmp">
+    <thead><tr><th style="width:30%;"></th><th>Human (5 weeks)</th><th>AI (hours, ~$34 in tokens)</th></tr></thead>
+    <tbody>
+      <tr class="highlight"><td class="row-label">Outcome-deciding classes<br><span style="font-weight:400; font-size:0.85em;">(spec &middot; UAPI &middot; architecture)</span></td><td><span class="good">all of them</span></td><td><span class="bad">zero</span></td></tr>
+      <tr><td class="row-label">Overlap</td><td>~40 findings</td><td>reproduced 9 of them (~22%)</td></tr>
+      <tr><td class="row-label">Unique findings</td><td>~31, incl. every blocker</td><td>5 &rarr; <span class="good">2 real but minor</span> + <span class="bad">3 false positives</span></td></tr>
+      <tr><td class="row-label">False positives</td><td>0</td><td><span class="bad">3 &mdash; each on an invented kernel mechanism</span>, incl. its only <em>Critical</em></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.7em; margin-top:0.6em;">One human sentence on hop-limit handling (<em>"the forwarding path handles it"</em>) pre-refuted two AI attack scenarios.</p>
+  <div class="takeaway">
+    <strong>Takeaway.</strong> AI review re-enacts the asymmetry one level up: findings are cheap to generate, expensive to verify &mdash; here, verification <em>debunked more than it confirmed</em>.
+  </div>
+</section>
+
+<!-- ===== SLIDE 8: LESSONS ===== -->
+<section class="fill">
+  <h2>Lessons: dos &amp; don'ts</h2>
+  <ul class="one-line" style="font-size: 0.85em; line-height: 1.5;">
+    <li><strong>Disclose AI use</strong> &mdash; an honesty norm, orthogonal to acceptance</li>
+    <li><strong>Small series</strong> &mdash; one behavior per patchset (the End.DT4/DT6/DT46 model)</li>
+    <li><strong>UAPI is forever</strong> &mdash; design it by hand, review it first</li>
+    <li><strong>Don't trust generated tests</strong> &mdash; they share the generator's blind spots</li>
+    <li><strong>AI-review output = claims to verify</strong>, not findings</li>
+    <li><strong>Humans keep the merge decision</strong> &mdash; and the spec, UAPI, architecture calls</li>
+    <li><strong>Cheap guards work</strong> &mdash; the early RFC-downgrade cost nothing and helped</li>
+  </ul>
+  <div class="takeaway" style="margin-top: 1.6em;">
+    <strong>Takeaway.</strong> The scarce resource is <em>expert maintainer attention</em> &mdash; every rule above exists to protect it.
+  </div>
+</section>
+
+<!-- ===== SLIDE 9: PROPOSALS + DISCUSSION ===== -->
+<section class="fill">
+  <h2>Two proposals for this BoF</h2>
+  <div class="two-col">
+    <div class="box" style="border-left: 6px solid var(--c-primary);">
+      <strong class="primary">1. Improve AI review &mdash; the margins are wide</strong>
+      <ul style="font-size:0.78em; margin-top:10px;">
+        <li><strong>Feedback loop</strong>: track "% wrong" next to "% unique" &mdash; every debunked finding becomes eval signal</li>
+        <li><strong>Maintainer-owned, per-subsystem review prompts</strong> &mdash; the mechanism already exists; the contribution pipeline doesn't</li>
+      </ul>
+    </div>
+    <div class="box" style="border-left: 6px solid var(--c-accent);">
+      <strong class="accent">2. Desk rejection &mdash; on quality, not provenance</strong>
+      <ul style="font-size:0.78em; margin-top:10px;">
+        <li>Reject code because it's <strong>badly written</strong>, not because it's AI-written</li>
+        <li>Mechanical, provenance-neutral gates: <strong>clone density</strong>, dead-code &amp; cast fingerprints, commit-msg &harr; diff consistency</li>
+        <li>Below the bar: <strong>reject wholesale</strong>, return the cost to the sender</li>
+      </ul>
+    </div>
+  </div>
+  <div class="takeaway" style="margin-top: 1.4em;">
+    <strong>Take-home.</strong> Price the review <em>before</em> it starts &mdash; no AI-detector arms race needed.
+  </div>
+  <p style="text-align:center; margin-top:1.2em; font-size:1.0em;"><span class="primary"><strong>Thank you.</strong></span> &nbsp; Discussion: who defines the bar &mdash; CI, Patchwork, MAINTAINERS?</p>
+  <p style="text-align:center; font-size:0.55em; color:var(--c-muted); margin-top:0.2em;"><code>andrea.mayer@uniroma2.it</code> &nbsp;&middot;&nbsp; <code>stefano.salsano@uniroma2.it</code></p>
+</section>
+
+
+
+</div></div>
+
+<script src="assets/reveal/reveal.js"></script>
+<script src="assets/reveal/plugin/notes/notes.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true, slideNumber: 'c/t', transition: 'slide',
+    width: 1600, height: 900, margin: 0.04, minScale: 0.2, maxScale: 2.0,
+    plugins: [ RevealNotes ]
+  }).then(function () {
+    if (/autoprint/.test(location.search)) { setTimeout(function () { window.print(); }, 1500); }
+  });
+</script>
+</body>
+</html>
