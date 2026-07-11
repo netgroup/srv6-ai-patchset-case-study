@@ -114,7 +114,7 @@ Andrea's refrain: *"UAPI cannot be undone once merged."*
 
 ## 5. AI in the loop, on both sides
 
-- **AI as reviewer worked — with human verification.** Sashiko (the AI review system, see §6 for the full comparison) produced 22 findings across all 7 patches. Andrea explicitly credited it twice in-thread: the commit-message/code mismatch and the ICMPv6 checksum break. The checksum finding only became actionable because Andrea reproduced it, explained *why* the test masked it, and derived the fix for the test's address plan. Andrea, in the review: "The AI bot was right, but when I ran the selftest it passed."
+- **AI as reviewer: marginal net contribution, and only under human verification.** Sashiko (the AI review system) produced 22 findings across all 7 patches, but source-level verification (§6) leaves a harsh ledger: it reproduced only ~9 of the human review's ~40 findings (§6.3.1); of its 5 unique findings on the common perimeter, 2 are real but minor and 3 are false positives built on invented kernel mechanisms — including its single Critical (§6.5); and it found zero findings in the three classes that determined the thread's outcome (spec conformance, UAPI design, architecture). Its genuine value in this thread reduces to two flags Andrea credited in-thread — the commit-message/code mismatch and the ICMPv6 checksum break — and even the better of those only became actionable because Andrea reproduced it, explained *why* the green selftest masked it, and derived the fix ("The AI bot was right, but when I ran the selftest it passed"). Every AI finding, right or wrong, consumed expert verification time: on this series, verification debunked more than it confirmed.
 - **AI provenance was never disclosed in-thread.** No message states the patchset was AI-generated. Observable signals: the 1-day v1→v2 turnaround on a 5.2k-line series; the wrong-section bug (hard to explain if the code had been written by reading §6.3); uniform structure across behaviors; late replies carry message-IDs from a single batch (`20260612032313.*`) sent across Jun 19-23, suggesting pre-drafted responses. *For the talk: be careful to present these as signals, not proof — and note that the absence of disclosure norms is itself a finding (cf. README disclaimer: no one can be blamed for getting it wrong).*
 
 ## 6. Human review vs AI review, side by side
@@ -158,6 +158,34 @@ The irreversible and the intentional:
 - **Empirical verification**: only the human ran the selftest, noticed it passed despite a real bug, and worked out the checksum coincidence.
 - Negotiating the rework: deciding what blocks merge vs what's a nit, and steering the submitter to a viable resubmission plan.
 
+### 6.3.1 The reverse ledger: how much of the human review did the AI reproduce?
+
+Counting Andrea's ~40 findings as thematic clusters (his "Same X as patch 2" back-references folded into one cluster each), **Sashiko reproduced ~9 of ~40 (~22%)** — i.e. half of Sashiko's 18 findings on P1-P5 coincide with a quarter of Andrea's:
+
+| Shared finding | Who did it better |
+|---|---|
+| Drop reason in commit msg but not in code (P1) | AI-first: Andrea credits Sashiko in-thread |
+| ICMPv6 checksum break on DA rewrite (P1) | AI flag, but the reproduction and the coincidence analysis are Andrea's (and it is not in the current dashboard run — §6.6 caveat) |
+| Malformed SRH treated as absent → HMAC bypass (P1) | Sashiko's framing sharper (`seg6_require_hmac` bypass scenario) |
+| Hop-limit comment/code mismatch (P1) | Andrea: one correct sentence vs two invalid AI attack scenarios (§6.2) |
+| INVALID_SRH_SL granularity/naming | Partial: Andrea also covers NOMEM/MTU duplication, BAD_INNER misuse, and proposes the prep series — Sashiko only the naming |
+| cb/dst corruption across NF_HOOK | Andrea: pre-existing root cause identified (7a3f5b0de364) and owned as a fix workstream; Sashiko adds concrete clobber chains |
+| Locator length derived from the FIB (P2) | Even: both propose the explicit attribute |
+| Fragmented outer not handled | Sashiko deeper on P4 (non-first frags → End path; first frags → truncated inner) |
+| RFC 6040 mis-citation | Sashiko more precise ("uniform mode" vs ECN state machine) |
+
+**~31 of Andrea's findings are invisible to Sashiko.** The most critical misses, ranked:
+
+1. **P4 implements neither RFC 9433 §6.3 nor §6.4** — the deepest bug in the series, on the patch Sashiko scored cleanest (0/0/0/1). Checking code against the *intent* of a spec is the number-one hole.
+2. **HMAC invalid-by-construction** (per-packet fields stamped after the SRH is signed) **+ stale `skb->csum`** — a security feature silently 100% broken; zero AI signal.
+3. **The entire UAPI-forever block**: required-but-unused `src` (in the documented example!), the 8-of-128-bits template, DA zero-fill, NH6/SRH/OIF semantic overload, unconstrained PDU Type. Irreversible after merge — the longest-lasting damage class, entirely absent from Sashiko's 22 findings (its only UAPI-adjacent item is the drop-reason naming).
+4. **NF_INET_FORWARD bypass** via `dst_output()` (the only behavior on the output path): firewall rules silently never see the traffic, and the comment claims LOCAL_OUT. Operationally and security-relevant.
+5. **Missing `iptunnel_handle_offloads()`** — the root cause of the GSO breakage. Peak irony: Sashiko produced three GSO-adjacent findings (IP-ID, MTU, TTL-clamp) while missing the root cause that dominates all of them.
+6. **Architecture and process**: H.M.GTP4.D misplaced in seg6_local, module split, per-behavior series, ×5 duplication — the findings that actually determined the thread's outcome ("start over").
+7. Minor but real: duplicate PDU Session Container silently overwriting QFI; selftests with scapy dependency and no adversarial cases; the dead defensive check emitting SA 0.0.0.0.
+
+The structural reading mirrors the false-positive pattern (§6.5): Sashiko excels *and* fails **inside the mechanics of a single hunk**; Andrea dominates everything that requires **context beyond the patch** — the RFC read end-to-end, coherence between patches 4 and 5, UAPI semantics across existing behaviors, empirical execution, the merge decision. Of the three finding classes that determined the outcome (spec, UAPI, architecture), Sashiko found zero.
+
 ### 6.4 Where they overlapped
 
 Absent-vs-malformed SRH → HMAC bypass (Sashiko's framing arguably sharper: an explicit `seg6_require_hmac`-bypass attack scenario); hop-limit comment/code mismatch; drop-reason naming; RFC 6040 mis-citation (Sashiko more precise: verbatim copy = "uniform mode", not the RFC 6040 ECN state machine); fragility of deriving locator length from the FIB (both proposed the explicit attribute); fragmented-outer handling (Sashiko deeper on P4: non-first fragments silently take the End path, first fragments emit truncated inner payloads); **the `skb->cb`/dst corruption across NF_HOOK** — Andrea flagged it in the cover letter (IPCB/IP6CB aliasing, NULL or unrelated dst in the finish callback, traced to the pre-existing 7a3f5b0de364 and taken on as his own fix workstream); Sashiko added concrete clobber call-chains (defrag → `IPCB` memset, flowtable, ovs) and attacker-influence framing on P2/P5.
@@ -181,15 +209,39 @@ The claim is plausible-sounding lifetime reasoning that ignores RCU deferral. At
 - Andrea credits Sashiko in-thread for the ICMPv6 checksum flag; it is not among the four findings of the current dashboard run for P1 (a different run, per the probabilistic caveat above) — cite carefully.
 - The dashboard's "% unique" (25% on P1, 86% on P2) suggests Sashiko itself tracks overlap with the list discussion.
 
-**Thesis for the talk**: on the same perimeter (P1-P5), the two reviews are *complementary, not redundant* — but the complementarity is narrower than the raw counts suggest. Of the five AI-only findings, source-level verification (§6.2, §6.5) leaves: **two real but minor data-path bugs** (IP-ID under-reservation, itself gated on the human's offload fix; the P3 ingress-MTU/comment mismatch) and **three false positives, each resting on a kernel mechanism that does not exist** (the §6.5 UAF ignoring RCU deferral; the `.static_headroom` "route pre-reserves headroom" claim; the "encap paths enforce a minimum TTL" convention). Weeks of expert review caught spec-intent, UAPI-forever and architectural problems the AI missed entirely — plus the one offload-integration bug (`iptunnel_handle_offloads()`) absent from the AI's findings — and only the human could verify claims empirically, debunk the false positives, and own the merge decision. Even on GSO, where both scored, they found disjoint facets. AI review raises the floor; it does not remove the bottleneck the cost asymmetry creates at the top — and each AI finding carries its own verification cost. On this series, verification *debunked more than it confirmed*: the recurring failure mode is mechanistic claims about kernel plumbing stated with idiomatic confidence — AI review exhibits the same plausible-but-wrong pattern as AI code (§4).
+**Thesis for the talk — AI review does not fix the cost asymmetry; it re-enacts it.** The talk's core claim is that AI-generated code is cheap to produce and expensive to review. The obvious rebuttal — "then let AI do the reviewing" — is what this comparison tests, and the verified ledger answers it. On the same perimeter (P1-P5): every finding class that determined the thread's outcome (spec conformance, UAPI-forever, architecture) came from the human and was invisible to the AI (§6.3.1); the AI reproduced ~22% of the human review; its unique contribution nets out to **two real but minor data-path bugs** (IP-ID under-reservation, itself gated on the human's offload fix; the P3 ingress-MTU/comment mismatch) against **three false positives, each resting on a kernel mechanism that does not exist** (the §6.5 UAF ignoring RCU deferral; the `.static_headroom` "route pre-reserves headroom" claim; the "encap paths enforce a minimum TTL" convention) — including its single Critical, the kind a maintainer cannot ignore. The failure signature is the same *plausible-but-wrong* pattern as AI code (§4): mechanistic claims about kernel plumbing stated with idiomatic confidence. So the asymmetry reappears one level up, intact: AI findings are cheap to generate and expensive to verify — on this series, expert verification *debunked more than it confirmed* — and the scarce, non-substitutable resource remains what it was before: expert human attention, which AI review consumes rather than replaces.
 
-## 7. What the process got right (worth saying at a BoF)
+## 7. From verdict to proposals: what should change
+
+The harsh ledger of §6 is not an argument for discarding AI review — it is a measurement of how far it currently is from useful, and a map of where the improvement margins are. Two concrete proposals for the BoF.
+
+### 7.1 AI review must be improved — and the margins are wide
+
+- **Feedback loops to kill false positives.** All three §6.5-class false positives were *mechanically debunkable* from kernel source — which means they are also mechanically preventable. Today the maintainer's verdict on a finding (confirmed / debunked) goes nowhere: the dashboard tracks "% unique" but has no channel for "% wrong". Close the loop: a maintainer marking a finding as a false positive should become evaluation and tuning signal for the reviewer. Every debunk of the kind documented in §6.2/§6.5 is, potentially, a regression test for the review agent — this very case study is such a dataset.
+- **Domain-specific knowledge, owned by maintainers.** The three false positives share one signature: *generic* plumbing claims applied to a subsystem whose actual rules the model didn't know (RCU-deferred dst/lwtstate lifetime; `lwtunnel_headroom()` semantics for input-redirect states; TTL-inherit conventions in encap paths). That is precisely what per-subsystem knowledge fixes. The mechanism already exists: Sashiko runs on an open-source set of per-subsystem and generic prompts (Chris Mason's review-prompts repo, cited on its About page). What is missing is the contribution pipeline: **maintainers must/can contribute the domain-specific review prompts for their own subsystem** — effectively MAINTAINERS-owned review policy, versioned and reviewed like code. The SRv6 rules that would have prevented all three false positives fit in a page.
+
+### 7.2 A desk-rejection threshold for submissions
+
+Journals have **desk rejection**: the editor rejects a manuscript without full peer review when quality is evidently below the bar. Kernel review has no formalized equivalent — the closest things in this thread were netdev CI and Jakub's RFC-downgrade, both far short of a rejection gate. The README of this case study already states the instinct: "an average maintainer would normally have rejected this patchset after the first 5 to 10 bugs." The proposal is to formalize it: **below a threshold of evident quality, the series is rejected wholesale, with the burden of proof shifted back to the submitter** (composable with the verified-submission gates of Rajat's talk in this same BoF).
+
+The strong point: in this case, *trivial* indicators would have inferred — with probability close to 1 — that the code was AI-generated with low-quality prompting, before any deep review started:
+
+- a 5,155-line series covering **six behaviors at once**, with v1→v2 turnaround of one day;
+- a *required* attribute that is unused **in the patchset's own documented example** (`src` with `v4_mask_len 32`) — something no author who ran their own example can produce;
+- comments describing code that does not exist (the hop-limit decrement, the LOCAL_OUT claim) and citations off by one RFC section (§6.3 vs §6.4) or out of scope (RFC 6040);
+- selftests that are 47% of the series and all green, yet arranged so as to miss every real bug (checksum-neutral address plans);
+- five near-identical copies of the same logic whose small divergences are exactly where the bugs sit;
+- (meta, softer) batch message-IDs in the submitter's replies.
+
+None of these indicators requires finding a single bug — they are cheap, mechanical signals whose job is to *price the review before it starts*. Framed for the BoF: a desk-rejection threshold is not anti-AI; it is review-economics. It protects the scarce resource (§6.6) that the cost asymmetry attacks: expert maintainer attention. Disclosure norms, desk rejection, and verified-submission gates compose into a pipeline where the default cost of a low-effort 5k-line submission returns to its sender.
+
+## 8. What the process got right (worth saying at a BoF)
 
 - Jakub's early move: downgrade to RFC until review tags arrive — a lightweight guard that CI had already been burned (v2's fixes were "all reported by netdev CI").
 - The review converged on *process* fixes, not just code fixes: per-behavior series (End.DT4/DT6/DT46 precedent), separate module + Kconfig, new encap type discussed with the lwtunnel community first, prep series for shared drop reasons.
 - The submitter's cooperation, whatever produced it, kept the thread civil and convergent.
 
-## 8. Key quotes (verified against the mbox)
+## 9. Key quotes (verified against the mbox)
 
 > "Could you switch to posting this as an RFC until you gather some review tags?" — Jakub Kicinski, May 4
 
@@ -203,7 +255,7 @@ The claim is plausible-sounding lifetime reasoning that ignores RCU deferral. At
 
 > "Producing a 5000 lines-of-code patchset with AI may take 1 or 2 days of work, while manually reviewing it takes a Linux kernel maintainer 5 to 10 times longer." — README / talk proposal
 
-## 9. Suggested skeleton for the ~10-minute slot (8-9 slides)
+## 10. Suggested skeleton for the ~10-minute slot (8-9 slides)
 
 1. **Title + disclaimer** — "not here to blame anyone" (the README disclaimer, verbatim: it sets the tone).
 2. **The patchset** — 6 RFC 9433 behaviors, 5,155 LoC, 12 files, v1→v2 in one day; looks great: docs, selftests (47%), perfect commit messages.
@@ -212,8 +264,8 @@ The claim is plausible-sounding lifetime reasoning that ignores RCU deferral. At
 5. **The checksum that passed by coincidence** — the End.MAP story (Sashiko flag → green selftest → equal 16-bit word sums). One slide, one anecdote, carries the whole "tests ≠ correctness" point.
 6. **Wrong section of the RFC** — comments citing §6.3 step numbers over code implementing neither §6.3 nor §6.4. "Plausible-but-wrong." Punchline: Sashiko gave this patch its cleanest review (0/0/0/1).
 7. **Human vs AI review, same patches** — the §6.1 numbers table (common perimeter P1-P5) + the verified ledger of the AI's unique findings: 5 flagged → 2 real but minor, 3 false positives *each built on an invented kernel mechanism* (RCU-deferred UAF, route headroom, TTL-clamp convention — §6.2/§6.5), including its only Critical; debunking them took exactly the kernel expertise AI review is meant to economize. The human (weeks) caught spec-intent, UAPI-forever, architecture, and the offload-integration bug the AI missed — and was the only one who *ran* anything, or could referee the false positives. Even on GSO they found disjoint facets. Punchline candidate: on Andrea's P1 hop-limit nit, one human sentence ("the forwarding path handles it") pre-refuted two AI attack scenarios.
-8. **Anti-patterns + lessons** — the 7 patterns of §4 compressed to ~4 bullets; dos & don'ts: disclosure; small series; UAPI designed by hand; don't trust generated tests; AI review raises the floor, humans keep the merge decision; RFC-downgrade as a cheap guard.
-9. **Discussion hook** — the open question for the BoF: what process change actually fixes a 1:5-10 cost ratio? (rate limits? verified-submission gates à la Rajat's talk? AI review à la Sashiko as a mandatory pre-filter?)
+8. **Anti-patterns + lessons** — the 7 patterns of §4 compressed to ~4 bullets; dos & don'ts: disclosure; small series; UAPI designed by hand; don't trust generated tests; treat AI review output as claims to verify, not findings — it fails the same plausible-but-wrong way AI code does; humans keep the merge decision.
+9. **Proposals (§7) + discussion hook** — two constructive moves: (a) improve AI review where the margins evidently are: feedback loops on debunked findings ("% wrong" next to "% unique") and maintainer-owned per-subsystem review prompts (the mechanism already exists — review-prompts — the pipeline doesn't); (b) **a desk-rejection threshold**, the journal analogy: this series carried trivial, mechanical, probability-≈1 indicators of low-effort AI generation (required-but-unused attribute in the documented example, comments describing absent code, one-day 5.2k-line turnaround) — reject wholesale below the bar and return the cost to the sender. Hook for the room: who defines the bar, and where does it live (CI? Patchwork? MAINTAINERS)?
 
 ---
 
