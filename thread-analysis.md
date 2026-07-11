@@ -2,7 +2,7 @@
 
 Working document for the Netdev 0x1A "New Age Tooling BoF" talk
 *"The Cost Asymmetry of AI-Generated Code: a Case Study in the SRv6 Subsystem"*
-(Andrea Mayer, Stefano Salsano).
+(Stefano Salsano; manual review by Andrea Mayer, SRv6 maintainer).
 
 Source: full mailing-list thread (28 messages, May 5 - Jun 23, 2026) in
 `PATCH-v2-1-7-seg6-add-End.MAP-behavior.mbox/`.
