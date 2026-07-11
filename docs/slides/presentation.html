@@ -56,7 +56,7 @@
   .title-slide .venue { font-size: 0.78em; color: var(--c-muted); margin: 1em 0 0.4em; line-height: 1.5; }
   .title-slide .logo-strip { display: flex; justify-content: center; align-items: center; gap: 48px; margin-bottom: 0.4em; }
   .title-slide .logo-strip img { height: 120px; width: auto; }
-  .title-slide .disclaimer { font-size: 0.72em; color: var(--c-muted); font-style: italic; margin-top: 1.2em; }
+  .title-slide .disclaimer { font-size: 0.83em; color: #374151; font-style: italic; margin-top: 1.2em; }
   table.cmp { font-size: 0.7em; border-collapse: collapse; margin: 0.4em auto; width: 100%; }
   table.cmp th, table.cmp td { border: 1px solid var(--c-soft); padding: 6px 9px; vertical-align: top; }
   table.cmp th { background: var(--c-primary); color: #fff; text-align: left; font-weight: 600; }
@@ -86,7 +86,7 @@
 <body>
 
 <div class="footer">
-  <span>Mayer, Salsano</span><span class="sep">|</span>
+  <span>Salsano</span><span class="sep">|</span>
   <span>The Cost Asymmetry of AI-Generated Code</span><span class="sep">|</span>
   <span>New Age Tooling BoF — Netdev 0x1A, Rome 2026</span>
 </div>
@@ -104,7 +104,7 @@
   <div><span class="part-banner">New Age Tooling BoF @ Netdev 0x1A</span></div>
   <h1>The Cost Asymmetry of AI-Generated Code<br><span class="accent">a Case Study in the SRv6 Subsystem</span></h1>
   <div class="authors">
-    <strong>Andrea Mayer</strong><sup>1</sup>, <strong>Stefano Salsano</strong><sup>1,2</sup><br>
+    <strong>Stefano Salsano</strong><sup>1,2</sup><br>
     <span class="muted"><sup>1</sup>University of Rome Tor Vergata, Italy &nbsp;&middot;&nbsp; <sup>2</sup>CNIT, Italy</span>
   </div>
   <div class="venue">
@@ -208,7 +208,7 @@
     <div class="msg-num">3</div>
     <div class="msg-body"><strong>The resolution.</strong> The two test addresses have equal 16-bit word sums: <code>2001:db8:f::1</code> vs <code>2001:db8:2::e</code> &mdash; <code>0x000f + 0x0001 = 0x0002 + 0x000e</code>. Change one address &rarr; <code>Icmp6InCsumErrors</code>.</div>
   </div>
-  <p style="margin-top: 0.8em; font-size: 0.72em;" class="muted"><em>"The AI bot was right, but when I ran the selftest it passed."</em> &mdash; the human reviewer, digging in</p>
+  <p style="margin-top: 0.8em; font-size: 0.72em;" class="muted"><em>"The AI bot was right, but when I ran the selftest it passed."</em> &mdash; Andrea Mayer, SRv6 maintainer, digging in</p>
   <div class="takeaway">
     <strong>Takeaway.</strong> Generated tests share the generator's blind spots &mdash; green CI &ne; correct.
   </div>
@@ -237,7 +237,7 @@
 <!-- ===== SLIDE 7: HUMAN VS AI REVIEW ===== -->
 <section class="fill">
   <h2>Human vs AI review, on the same patches</h2>
-  <p style="font-size:0.7em;" class="muted">Same perimeter (patches 1&ndash;5) &mdash; AI reviewer: Sashiko (Patchwork), every finding re-verified against kernel source.</p>
+  <p style="font-size:0.7em;" class="muted">Same perimeter (patches 1&ndash;5) &mdash; human reviewer: <strong>Andrea Mayer, SRv6 maintainer</strong> &middot; AI reviewer: Sashiko (Patchwork) &mdash; every finding re-verified against kernel source.</p>
   <table class="cmp">
     <thead><tr><th style="width:30%;"></th><th>Human (5 weeks)</th><th>AI (hours, ~$34 in tokens)</th></tr></thead>
     <tbody>
@@ -293,8 +293,9 @@
   <div class="takeaway" style="margin-top: 1.4em;">
     <strong>Take-home.</strong> Price the review <em>before</em> it starts &mdash; no AI-detector arms race needed.
   </div>
-  <p style="text-align:center; margin-top:1.2em; font-size:1.0em;"><span class="primary"><strong>Thank you.</strong></span> &nbsp; Discussion: who defines the bar &mdash; CI, Patchwork, MAINTAINERS?</p>
-  <p style="text-align:center; font-size:0.55em; color:var(--c-muted); margin-top:0.2em;"><code>andrea.mayer@uniroma2.it</code> &nbsp;&middot;&nbsp; <code>stefano.salsano@uniroma2.it</code></p>
+  <p style="text-align:center; margin-top:1.0em; font-size:0.72em;">Special thanks to <strong class="primary">Andrea Mayer</strong>, SRv6 maintainer, who performed the manual review at the heart of this case study.</p>
+  <p style="text-align:center; margin-top:0.6em; font-size:1.0em;"><span class="primary"><strong>Thank you.</strong></span> &nbsp; Discussion: who defines the bar &mdash; CI, Patchwork, MAINTAINERS?</p>
+  <p style="text-align:center; font-size:0.55em; color:var(--c-muted); margin-top:0.2em;"><code>stefano.salsano@uniroma2.it</code></p>
 </section>
 
 
