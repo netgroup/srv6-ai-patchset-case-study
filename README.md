@@ -2,6 +2,15 @@
 
 Public analysis of an AI-generated patchset submitted to the Linux kernel SRv6 subsystem: what went wrong, why, and lessons learned for using AI in kernel development.
 
+## The talk
+
+This case study is presented at the [New Age Tooling BoF](https://netdevconf.info/0x1A/sessions/bof/new-age-tooling-bof.html) @ Netdev 0x1A (Rome, July 2026):
+
+- **Talk page (slides + PDF):** <https://netgroup.github.io/srv6-ai-patchset-case-study/>
+- **Slides (HTML):** [open in the browser](https://netgroup.github.io/srv6-ai-patchset-case-study/slides/presentation.html) · **[PDF](https://netgroup.github.io/srv6-ai-patchset-case-study/slides/srv6-ai-case-study-netdev0x1A.pdf)**
+- **Full analysis:** [thread-analysis.md](thread-analysis.md) — timeline, findings catalog, human-vs-AI review comparison, proposals
+- **The patchset thread:** [on lore.kernel.org](https://lore.kernel.org/netdev/20260505-seg6-mobile-v2-0-9e8022bdfdb6@gmail.com/) · [AI review of the same series (Sashiko)](https://netdev-ai.bots.linux.dev/sashiko/#/patchset/20260505-seg6-mobile-v2-0-9e8022bdfdb6%40gmail.com)
+
 ## Disclaimer
 
 We are not here to blame anyone. We are here to learn and to improve the kernel development process, taking into account both the opportunities and the risks of AI.
